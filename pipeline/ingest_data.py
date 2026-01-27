@@ -42,20 +42,18 @@ parse_dates = [
 @click.option('--month', default=1, type=int, help='Month of data')
 @click.option('--target-table', default='yellow_taxi_data', help='Target table name')
 @click.option('--chunksize', default=100000, type=int, help='Chunk size for reading')
-def run(pg_user, pg_password, pg_host, pg_port, pg_database, year, month, target_table, chunksize):
+@click.option('--data-url', default='', help='Custom parquet file URL')
+def run(pg_user, pg_password, pg_host, pg_port, pg_database, year, month, target_table, chunksize, data_url):
     
-    prefix = 'https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow'
-    url = f'{prefix}/yellow_tripdata_{year}-{month:02d}.csv.gz'
+    if data_url:
+        url = data_url
+    else:
+        url = f'https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_{year}-{month:02d}.parquet'
 
     engine = create_engine(f'postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}')
 
-    df_iter = pd.read_csv(
-        url,
-        dtype=dtype,
-        parse_dates=parse_dates,
-        iterator=True,
-        chunksize=chunksize
-    )
+    df = pd.read_parquet(url)
+    df_iter = [df[i:i+chunksize] for i in range(0, len(df), chunksize)]
 
     first = True
 
@@ -73,6 +71,17 @@ def run(pg_user, pg_password, pg_host, pg_port, pg_database, year, month, target
             con=engine,
             if_exists='append'
         )
+
+    # Load taxi zone lookup table
+    zones_url = 'https://github.com/DataTalksClub/nyc-tlc-data/releases/download/misc/taxi_zone_lookup.csv'
+    df_zones = pd.read_csv(zones_url)
+    df_zones.to_sql(
+        name='taxi_zone_lookup',
+        con=engine,
+        if_exists='replace',
+        index=False
+    )
+    print("Taxi zone lookup table loaded successfully.")
 
 if __name__ == '__main__':
     run()
