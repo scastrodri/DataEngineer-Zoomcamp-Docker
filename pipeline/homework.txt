@@ -1,0 +1,54 @@
+Question 1. What's the version of pip in the python:3.13 image?
+Answer: pip -V -> pip 25.3
+
+Question 2. Given the following docker-compose.yaml, what is the hostname and port that pgadmin should use to connect to the postgres database?
+Answer: The service is db and the port 5432.
+
+Question 3. or the trips in November 2025 (lpep_pickup_datetime between '2025-11-01' and '2025-12-01', exclusive of the upper bound), 
+how many trips had a trip_distance of less than or equal to 1 mile?
+Answer: Use query 
+select count(1) from public.yellow_taxi_data_trips_2025_11
+where lpep_pickup_datetime between '2025-11-01' and '2025-12-01' and trip_distance <= 1;
+The results shows 8007
+
+Question 4. Which was the pick up day with the longest trip distance? Only consider trips with trip_distance less than 100 miles.
+Answer: Use query 
+select lpep_pickup_datetime, trip_distance from public.yellow_taxi_data_trips_2025_11
+where trip_distance < 100
+order by trip_distance desc
+limit 1;
+The results shows "2025-11-14 15:36:27"	88.03
+
+Question 5. Which was the pickup zone with the largest total_amount (sum of all trips) on November 18th, 2025?
+Answer: Use query
+SELECT 
+    tz."Zone", 
+    SUM(yt."total_amount") AS daily_total_amount
+FROM public.yellow_taxi_data_trips_2025_11 AS yt
+INNER JOIN public.taxi_zone_lookup AS tz
+    ON yt."PULocationID" = tz."LocationID"
+WHERE yt."lpep_pickup_datetime" >= '2025-11-18 00:00:00' 
+  AND yt."lpep_pickup_datetime" <= '2025-11-18 23:59:59'
+GROUP BY tz."Zone"
+ORDER BY daily_total_amount DESC
+LIMIT 1;
+The results shows "East Harlem North"	9281.919999999996
+
+Question 6. For the passengers picked up in the zone named "East Harlem North" in November 2025, which was the drop off zone that had the largest tip?
+Answer: Use query
+SELECT 
+    tz_do."Zone" AS dropoff_zone, 
+    MAX(yt."tip_amount") AS largest_tip
+FROM public.yellow_taxi_data_trips_2025_11 AS yt
+INNER JOIN public.taxi_zone_lookup AS tz_pu
+    ON yt."PULocationID" = tz_pu."LocationID"
+INNER JOIN public.taxi_zone_lookup AS tz_do
+    ON yt."DOLocationID" = tz_do."LocationID"
+WHERE tz_pu."Zone" = 'East Harlem North'
+  AND yt."lpep_pickup_datetime" >= '2025-11-01 00:00:00'
+  AND yt."lpep_pickup_datetime" < '2025-12-01 00:00:00'
+GROUP BY tz_do."Zone"
+ORDER BY largest_tip DESC
+LIMIT 1;
+The results shows "Yorkville West"	81.89
+
